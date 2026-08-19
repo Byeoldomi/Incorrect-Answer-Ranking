@@ -338,22 +338,17 @@
             let hasMore = true;
             let nextCursor = undefined;
 
-            // 최근 30일 계산 (YYYY-MM-DD 형식으로 변환하여 Notion API 포맷 오류 방지)
-            const thirtyDaysAgo = new Date();
-            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-            const isoDateString = thirtyDaysAgo.toISOString().split('T')[0];
-
             try {
                 // 페이지네이션 처리하며 전체 데이터 불러오기
                 while (hasMore) {
                     const apiUrl = `https://api.notion.com/v1/databases/${dbId}/query`;
                     
                     const body = {
-                        // 페이지 생성일 기준 30일 이내 필터
+                        // 노션 API 자체 기능인 최근 1달(past_month) 필터 사용
                         filter: {
                             timestamp: "created_time",
                             created_time: {
-                                on_or_after: isoDateString
+                                past_month: {}
                             }
                         }
                     };
