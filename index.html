@@ -267,7 +267,16 @@
         }
 
         function getApiKey() { return localStorage.getItem('notion_api_key'); }
-        function getDbId() { return localStorage.getItem('notion_db_id'); }
+        function getDbId() { 
+            let dbId = localStorage.getItem('notion_db_id');
+            if (dbId) {
+                const match = dbId.match(/[a-f0-9]{32}|[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/i);
+                if (match) {
+                    return match[0].replace(/-/g, '');
+                }
+            }
+            return dbId;
+        }
 
         function saveAndConnect() {
             const apiKey = document.getElementById('apiKey').value.trim();
