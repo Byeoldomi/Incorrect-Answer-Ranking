@@ -186,7 +186,7 @@
 <body>
 
     <div class="results-container" id="resultsContainer">
-        <div class="message">API Key와 Database ID를 설정해주세요.</div>
+        <!-- 초기 플레이스홀더 렌더링 영역 -->
     </div>
 
     <div class="settings-container">
@@ -220,10 +220,34 @@
             if (getApiKey() && getDbId()) {
                 fetchData();
             } else {
-                // 초기 상태에 키가 없으면 설정 창 열어두기
+                // 초기 상태에 키가 없으면 설정 창 열어두고 위젯 플레이스홀더 표시
                 document.getElementById('settingsPanel').classList.add('active');
+                renderPlaceholder();
             }
         });
+
+        function renderPlaceholder() {
+            const container = document.getElementById('resultsContainer');
+            container.innerHTML = `
+                <ul class="ranking-list" style="opacity: 0.5;">
+                    <li class="ranking-item">
+                        <span class="rank">1위</span>
+                        <span class="reason-name">API를 연결해주세요</span>
+                        <span class="percentage">- %</span>
+                    </li>
+                    <li class="ranking-item">
+                        <span class="rank">2위</span>
+                        <span class="reason-name">설정 대기 중</span>
+                        <span class="percentage">- %</span>
+                    </li>
+                    <li class="ranking-item">
+                        <span class="rank">3위</span>
+                        <span class="reason-name">설정 대기 중</span>
+                        <span class="percentage">- %</span>
+                    </li>
+                </ul>
+            `;
+        }
 
         function toggleSettings() {
             const panel = document.getElementById('settingsPanel');
