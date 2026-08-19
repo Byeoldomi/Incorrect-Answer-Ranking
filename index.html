@@ -338,10 +338,10 @@
             let hasMore = true;
             let nextCursor = undefined;
 
-            // 최근 30일 계산
+            // 최근 30일 계산 (YYYY-MM-DD 형식으로 변환하여 Notion API 포맷 오류 방지)
             const thirtyDaysAgo = new Date();
             thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-            const isoDateString = thirtyDaysAgo.toISOString();
+            const isoDateString = thirtyDaysAgo.toISOString().split('T')[0];
 
             try {
                 // 페이지네이션 처리하며 전체 데이터 불러오기
@@ -393,6 +393,8 @@
                     errorGuidance = "• <b>가장 흔한 원인</b>: 노션 데이터베이스 페이지 우측 상단 '...' (더보기) 메뉴 -> '연결(Connections)' -> '연결 추가(Add connections)'에서 생성하신 API(통합 문서)를 반드시 추가해주세요.<br>• 데이터베이스 ID가 정확한지 확인해주세요. (URL의 32자리 문자열)";
                 } else if (error.message.includes('401')) {
                     errorGuidance = "• Notion API Key가 올바른지 확인해주세요. (secret_... 으로 시작)";
+                } else if (error.message.includes('400')) {
+                    errorGuidance = "• 잘못된 요청입니다. 노션 데이터베이스의 형식이 변경되었거나 지원되지 않는 데이터가 있을 수 있습니다.";
                 } else {
                     errorGuidance = "• API Key와 DB ID, 혹은 네트워크 상태를 다시 확인해주세요. (F12 콘솔 확인)";
                 }
