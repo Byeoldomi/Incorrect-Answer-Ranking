@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>오답 원인 순위 위젯</title>
+    <style>
+        :root {
+            --bg-color: #ffffff;
+            --text-color: #000000;
+            --gray-color: #888888;
+            --border-color: #dddddd;
+            --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+        }
+
+        /* 다크모드 대응 (노션 테마에 맞춰질 수 있도록) */
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-color: #191919;
+                --text-color: #ffffff;
+                --gray-color: #aaaaaa;
+                --border-color: #333333;
+            }
+        }
+
+        body {
+            background-color: transparent; /* 노션 임베드 시 배경과 어우러지도록 투명 */
+            color: var(--text-color);
+            font-family: var(--font-family);
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* 설정 영역 */
+        .settings-container {
+            margin-top: auto; /* 하단으로 밀어내기 */
+            padding-top: 16px;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end; /* 우측 정렬 */
+        }
+
+        .settings-toggle {
+            background: none;
+            border: none;
+            color: var(--gray-color);
+            cursor: pointer;
+            padding: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: color 0.2s, transform 0.3s;
+            opacity: 0.5;
+        }
+        
+        .settings-toggle:hover {
+            color: var(--text-color);
+            opacity: 1;
+            transform: rotate(90deg); /* 호버 시 회전 애니메이션 */
+        }
+
+        .settings-panel {
+            display: none;
+            width: 100%;
+            max-width: 240px;
+            margin-top: 8px;
+            padding: 16px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            background-color: var(--bg-color);
+        }
+
+        .settings-panel.active {
+            display: block;
+        }
+
+        .input-group {
+            margin-bottom: 14px;
+        }
+
+        .input-group label {
+            display: block;
+            font-size: 12px;
+            color: var(--gray-color);
+            margin-bottom: 6px;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            background-color: transparent;
+            color: var(--text-color);
+            font-size: 14px;
+            box-sizing: border-box;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .input-group input:focus {
+            border-color: var(--text-color);
+        }
+
+        .btn {
+            background-color: var(--text-color);
+            color: var(--bg-color);
+            border: 1px solid var(--text-color);
+            padding: 10px 16px;
+            font-size: 14px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
+            width: 100%;
+            transition: opacity 0.2s;
+        }
+
+        .btn:hover {
+            opacity: 0.8;
+        }
+
+        /* 결과 출력 영역 */
+        .results-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .message {
+            text-align: left;
+            color: var(--gray-color);
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .ranking-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .ranking-item {
+            display: flex;
+            align-items: baseline;
+            gap: 16px;
+            font-size: 28px;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+        }
+
+        .rank {
+            color: var(--gray-color);
+            font-size: 18px;
+            font-weight: 400;
+            min-width: 36px;
+        }
+
+        .reason-name {
+            flex: 1;
+            word-break: keep-all;
+        }
+
+        .percentage {
+            color: var(--gray-color);
+            font-size: 20px;
+            font-weight: 400;
+        }
+
+        /* 반응형 타이포그래피 (위젯 크기가 작을 때) */
+        @media (max-width: 400px) {
+            .ranking-item { font-size: 24px; }
+            .rank { font-size: 16px; min-width: 30px; }
+            .percentage { font-size: 18px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="results-container" id="resultsContainer">
+        <div class="message">API Key와 Database ID를 설정해주세요.</div>
+    </div>
+
+    <div class="settings-container">
+        <button class="settings-toggle" id="settingsToggle" onclick="toggleSettings()" title="설정">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+            </svg>
+        </button>
+        <div class="settings-panel" id="settingsPanel">
+            <div class="input-group">
+                <label for="apiKey">Notion API Key</label>
+                <input type="password" id="apiKey" placeholder="secret_..." autocomplete="off">
+            </div>
+            <div class="input-group">
+                <label for="dbId">Database ID</label>
+                <input type="text" id="dbId" placeholder="예: abc123def456..." autocomplete="off">
+            </div>
+            <button class="btn" onclick="saveAndConnect()">연결</button>
+        </div>
+    </div>
+
+    <script>
+        // 목표 속성 이름 (Select 타입이어야 함)
+        const PROPERTY_NAME = '오답 원인';
+        // CORS 우회를 위한 프록시 URL
+        const CORS_PROXY = 'https://corsproxy.io/?';
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadSettings();
+            if (getApiKey() && getDbId()) {
+                fetchData();
+            } else {
+                // 초기 상태에 키가 없으면 설정 창 열어두기
+                document.getElementById('settingsPanel').classList.add('active');
+            }
+        });
+
+        function toggleSettings() {
+            const panel = document.getElementById('settingsPanel');
+            panel.classList.toggle('active');
+        }
+
+        function loadSettings() {
+            const apiKey = localStorage.getItem('notion_api_key');
+            const dbId = localStorage.getItem('notion_db_id');
+            if (apiKey) document.getElementById('apiKey').value = apiKey;
+            if (dbId) document.getElementById('dbId').value = dbId;
+        }
+
+        function getApiKey() { return localStorage.getItem('notion_api_key'); }
+        function getDbId() { return localStorage.getItem('notion_db_id'); }
+
+        function saveAndConnect() {
+            const apiKey = document.getElementById('apiKey').value.trim();
+            const dbId = document.getElementById('dbId').value.trim();
+
+            if (!apiKey || !dbId) {
+                alert('API Key와 Database ID를 모두 입력해주세요.');
+                return;
+            }
+
+            localStorage.setItem('notion_api_key', apiKey);
+            localStorage.setItem('notion_db_id', dbId);
+            
+            // 설정 창 닫기
+            document.getElementById('settingsPanel').classList.remove('active');
+            
+            fetchData();
+        }
+
+        async function fetchData() {
+            const container = document.getElementById('resultsContainer');
+            container.innerHTML = '<div class="message">데이터를 불러오는 중...</div>';
+
+            const apiKey = getApiKey();
+            const dbId = getDbId();
+
+            let allResults = [];
+            let hasMore = true;
+            let nextCursor = undefined;
+
+            // 최근 30일 계산
+            const thirtyDaysAgo = new Date();
+            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+            const isoDateString = thirtyDaysAgo.toISOString();
+
+            try {
+                // 페이지네이션 처리하며 전체 데이터 불러오기
+                while (hasMore) {
+                    const apiUrl = `https://api.notion.com/v1/databases/${dbId}/query`;
+                    const proxyUrl = CORS_PROXY + encodeURIComponent(apiUrl);
+                    
+                    const body = {
+                        // 페이지 생성일 기준 30일 이내 필터
+                        filter: {
+                            timestamp: "created_time",
+                            created_time: {
+                                on_or_after: isoDateString
+                            }
+                        }
+                    };
+                    
+                    if (nextCursor) {
+                        body.start_cursor = nextCursor;
+                    }
+
+                    const response = await fetch(proxyUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${apiKey}`,
+                            'Notion-Version': '2022-06-28',
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(body)
+                    });
+
+                    if (!response.ok) {
+                        const err = await response.json().catch(() => ({}));
+                        throw new Error(`API 오류 (${response.status}): ${err.message || '인증 정보나 데이터베이스 ID를 확인해주세요.'}`);
+                    }
+
+                    const data = await response.json();
+                    allResults = allResults.concat(data.results);
+                    
+                    hasMore = data.has_more;
+                    nextCursor = data.next_cursor;
+                }
+
+                analyzeData(allResults);
+
+            } catch (error) {
+                container.innerHTML = `<div class="message">데이터를 불러오지 못했습니다.<br><br><span style="font-size:12px;">${error.message}</span></div>`;
+            }
+        }
+
+        function analyzeData(pages) {
+            const container = document.getElementById('resultsContainer');
+            const counts = {};
+            let totalValidResponses = 0;
+
+            if (pages.length > 0) {
+                console.log("데이터베이스의 속성 목록:", Object.keys(pages[0].properties));
+            }
+
+            // 데이터 카운팅
+            pages.forEach(page => {
+                const props = page.properties;
+                // '오답 원인' 속성이 존재하는지 확인
+                if (props && props[PROPERTY_NAME]) {
+                    const prop = props[PROPERTY_NAME];
+                    
+                    // 1. Select (단일 선택) 타입인 경우
+                    if (prop.type === 'select' && prop.select && prop.select.name) {
+                        const reason = prop.select.name;
+                        counts[reason] = (counts[reason] || 0) + 1;
+                        totalValidResponses++;
+                    }
+                    // 2. Multi-select (다중 선택) 타입인 경우
+                    else if (prop.type === 'multi_select' && prop.multi_select && prop.multi_select.length > 0) {
+                        prop.multi_select.forEach(item => {
+                            if (item.name) {
+                                counts[item.name] = (counts[item.name] || 0) + 1;
+                                // 선택된 개수만큼 비율 분모(total) 증가
+                                totalValidResponses++;
+                            }
+                        });
+                    }
+                    // 3. 텍스트(rich_text) 타입인 경우 (사용자가 텍스트로 입력했을 수도 있으므로)
+                    else if (prop.type === 'rich_text' && prop.rich_text && prop.rich_text.length > 0) {
+                        const reason = prop.rich_text.map(t => t.plain_text).join('').trim();
+                        if (reason) {
+                            counts[reason] = (counts[reason] || 0) + 1;
+                            totalValidResponses++;
+                        }
+                    }
+                    // 4. 타이틀(title) 타입인 경우
+                    else if (prop.type === 'title' && prop.title && prop.title.length > 0) {
+                        const reason = prop.title.map(t => t.plain_text).join('').trim();
+                        if (reason) {
+                            counts[reason] = (counts[reason] || 0) + 1;
+                            totalValidResponses++;
+                        }
+                    }
+                }
+            });
+
+            if (totalValidResponses === 0) {
+                let availableProps = pages.length > 0 ? Object.keys(pages[0].properties).join(', ') : '없음';
+                container.innerHTML = `
+                    <div class="message">
+                        데이터에서 해당 속성 값을 찾을 수 없습니다.<br><br>
+                        - 설정된 속성 이름: <b>${PROPERTY_NAME}</b><br>
+                        - DB에 존재하는 속성 이름: <b>${availableProps}</b><br><br>
+                        <span style="font-size: 12px; color: var(--gray-color);">띄어쓰기나 대소문자가 정확히 일치하는지 확인해주세요. (필요 시 브라우저 개발자 도구의 콘솔을 확인해주세요.)</span>
+                    </div>
+                `;
+                return;
+            }
+
+            // 배열로 변환 및 정렬, 상위 3개 추출
+            const sortedReasons = Object.entries(counts)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 3);
+
+            // 결과 HTML 생성
+            let html = '<ul class="ranking-list">';
+            sortedReasons.forEach(([reason, count], index) => {
+                // 비율 계산 (소수점 첫째 자리에서 반올림하여 정수화)
+                const percentage = Math.round((count / totalValidResponses) * 100);
+                html += `
+                    <li class="ranking-item">
+                        <span class="rank">${index + 1}위</span>
+                        <span class="reason-name">${reason}</span>
+                        <span class="percentage">${percentage}%</span>
+                    </li>
+                `;
+            });
+            html += '</ul>';
+
+            container.innerHTML = html;
+        }
+    </script>
+</body>
+</html>
