@@ -212,13 +212,6 @@
     <script>
         // 목표 속성 이름 (Select 타입이어야 함)
         const PROPERTY_NAME = '오답 원인';
-        
-        // CORS 우회를 위한 프록시 URL 목록 (하나가 막히면 다음 것으로 재시도)
-        const CORS_PROXIES = [
-            'https://corsproxy.io/?',
-            'https://thingproxy.freeboard.io/fetch/',
-            'https://api.allorigins.win/raw?url='
-        ];
 
         document.addEventListener('DOMContentLoaded', () => {
             loadSettings();
@@ -303,46 +296,6 @@
             fetchData();
         }
 
-        async function fetchWithProxy(apiUrl, options) {
-            let lastError;
-            
-            // 1. Vercel 배포 환경(또는 localhost)인 경우, 가장 안정적인 Vercel 자체 Rewrite 기능 우선 사용
-            if (window.location.hostname.includes('vercel.app') || window.location.hostname === 'localhost') {
-                try {
-                    const vercelProxyUrl = apiUrl.replace('https://api.notion.com/v1/', '/notion-api/');
-                    const response = await fetch(vercelProxyUrl, options);
-                    
-                    // 네트워크 에러가 아닌 정상 응답(혹은 401, 404 등 Notion 자체 에러)이면 바로 반환
-                    if (response.ok || response.status >= 400) {
-                        return response;
-                    }
-                } catch (e) {
-                    console.warn("Vercel 프록시 연결 실패, 퍼블릭 프록시로 폴백 시도:", e);
-                }
-            }
-
-            // 2. 로컬 파일(file://)로 실행했거나 Vercel 프록시가 실패한 경우, 퍼블릭 프록시 순차 시도
-            for (const proxy of CORS_PROXIES) {
-                try {
-                    let proxyUrl;
-                    if (proxy.includes('allorigins')) {
-                         proxyUrl = proxy + encodeURIComponent(apiUrl);
-                    } else {
-                         proxyUrl = proxy + encodeURIComponent(apiUrl);
-                    }
-                    
-                    const response = await fetch(proxyUrl, options);
-                    return response;
-                    
-                } catch (error) {
-                    console.warn(`프록시 실패 (${proxy}):`, error.message);
-                    lastError = error;
-                }
-            }
-            // 모든 프록시가 실패했을 때
-            throw lastError || new Error("모든 CORS 프록시 서버 연결에 실패했습니다.");
-        }
-
         async function fetchData() {
             const container = document.getElementById('resultsContainer');
             container.innerHTML = '<div class="message">데이터를 불러오는 중...</div>';
@@ -357,20 +310,19 @@
             try {
                 // 페이지네이션 처리하며 전체 데이터 불러오기
                 while (hasMore) {
-                    const apiUrl = `https://api.notion.com/v1/databases/${dbId}/query`;
-                    
-                    const body = {}; // 노션 서버 오류(400)를 피하기 위해 필터 없이 전체를 가져옵니다.
+                    const body = {
+                        notionApiKey: apiKey,
+                        databaseId: dbId
+                    };
                     
                     if (nextCursor) {
                         body.start_cursor = nextCursor;
                     }
 
-                    // 자체 구현한 다중 프록시 fetch 사용
-                    const response = await fetchWithProxy(apiUrl, {
+                    // Vercel Serverless Function으로 POST 요청 전송
+                    const response = await fetch('/api/notion', {
                         method: 'POST',
                         headers: {
-                            'Authorization': `Bearer ${apiKey}`,
-                            'Notion-Version': '2022-06-28',
                             'Content-Type': 'application/json'
                         },
                         body: JSON.stringify(body)
