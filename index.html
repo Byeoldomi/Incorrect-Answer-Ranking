@@ -271,11 +271,18 @@
 
         function saveAndConnect() {
             const apiKey = document.getElementById('apiKey').value.trim();
-            const dbId = document.getElementById('dbId').value.trim();
+            let dbIdInput = document.getElementById('dbId').value.trim();
 
-            if (!apiKey || !dbId) {
+            if (!apiKey || !dbIdInput) {
                 alert('API Key와 Database ID를 모두 입력해주세요.');
                 return;
+            }
+
+            // 사용자가 전체 링크를 붙여넣었을 경우를 대비해 32자리 고유 ID만 추출
+            const match = dbIdInput.match(/[a-f0-9]{32}|[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/i);
+            let dbId = dbIdInput;
+            if (match) {
+                dbId = match[0].replace(/-/g, ''); // 하이픈 제거하여 깔끔한 32자리로 통일
             }
 
             localStorage.setItem('notion_api_key', apiKey);
@@ -381,7 +388,7 @@
                 } else if (error.message.includes('401')) {
                     errorGuidance = "• Notion API Key가 올바른지 확인해주세요. (secret_... 으로 시작)";
                 } else if (error.message.includes('400')) {
-                    errorGuidance = "• 잘못된 요청입니다. 노션 데이터베이스의 형식이 변경되었거나 지원되지 않는 데이터가 있을 수 있습니다.";
+                    errorGuidance = "• 잘못된 요청(Invalid request URL)입니다. 입력하신 데이터베이스 ID에 오타가 있거나 형식이 잘못되었을 수 있습니다. 다시 설정(연결)을 시도해주세요.";
                 } else {
                     errorGuidance = "• API Key와 DB ID, 혹은 네트워크 상태를 다시 확인해주세요. (F12 콘솔 확인)";
                 }
